@@ -3581,9 +3581,9 @@ struct ImFontGlyph
     unsigned int    Colored : 1;        // Flag to indicate glyph is colored and should generally ignore tinting (make it usable with no shift on little-endian as this is used in loops)
     unsigned int    Visible : 1;        // Flag to indicate glyph has no visible pixels (e.g. space). Allow early out when rendering.
     unsigned int    Codepoint : 30;     // 0x0000..0x10FFFF
-    float           AdvanceX;           // Horizontal distance to advance layout with
-    float           X0, Y0, X1, Y1;     // Glyph corners
-    float           U0, V0, U1, V1;     // Texture coordinates
+    float           AdvanceX;           // Horizontal distance to advance cursor/layout position.
+    float           X0, Y0, X1, Y1;     // Glyph corners. Offsets from current cursor/layout position.
+    float           U0, V0, U1, V1;     // Texture coordinates. Cached equivalent of calling GetCustomRectUV() with PackId.
     int             PackId;             // [Internal] ImFontAtlasRectId value (FIXME: Cold data, could be moved elsewhere?)
 
     ImFontGlyph()   { memset(this, 0, sizeof(*this)); PackId = -1; }
@@ -3702,16 +3702,18 @@ struct ImFontAtlas
     // - Since 1.92.X, packing is done immediately in the function call.
     // - You can render your pixels into the texture right after calling the AddCustomRectXXX() functions.
     // - Texture may be resized, so you cannot cache UV coordinates: always use GetCustomRectUV()!
+    //   VERY IMPORTANT: RECTANGLE DATA AND UV COORDINATES MAY BE INVALIDATED BY *ANY* CALL TO IMGUI FUNCTIONS - e.g. ImGui::Text() - OR BY atlas->AddCustomRectRegular(). NEVER CACHE THOSE!!!
     // - If you render colored output into your AddCustomRectRegular() rectangle: set 'atlas->TexPixelsUseColors = true' as this may help some backends decide of preferred texture format.
     // - Read docs/FONTS.md for more details about using colorful icons.
     // - Note: this API may be reworked further in order to facilitate supporting e.g. multi-monitor, varying DPI settings.
-    // - Pre-1.92 names:
-    //   - AddCustomRectFontGlyph() --> Use custom ImFontLoader inside ImFontConfig
+    // - (Pre-1.92 names) ------------> (1.92 names)
     //   - GetCustomRectByIndex()   --> Use GetCustomRect()
     //   - CalcCustomRectUV()       --> Use GetCustomRectUV()
+    //   - AddCustomRectFontGlyph() --> Prefer using custom ImFontLoader inside ImFontConfig
+    //   - ImFontAtlasCustomRect    --> ImTextureRect
     IMGUI_API int                   AddCustomRectRegular(int width, int height);    // Register a rectangle. Return -1 on error.
-    IMGUI_API const ImTextureRect*  GetCustomRect(int id);                          // Get rectangle coordinate in current texture.
-    IMGUI_API void                  GetCustomRectUV(const ImTextureRect* r, ImVec2* out_uv_min, ImVec2* out_uv_max) const; // Get UV coordinates for a given rectangle
+    IMGUI_API const ImTextureRect*  GetCustomRect(int id);                          // Get rectangle coordinate in current texture. Valid immediately, never store this (read above)!
+    IMGUI_API void                  GetCustomRectUV(const ImTextureRect* r, ImVec2* out_uv_min, ImVec2* out_uv_max) const; // Get UV coordinates for a given rectangle. Valid immediately, never store this (read above)!
 
     //-------------------------------------------
     // Members
